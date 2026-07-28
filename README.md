@@ -152,3 +152,26 @@ npm start
 | `JWT_SECRET` | Strong random string for JWT signing |
 | `MONGO_URI` | MongoDB connection string |
 | `EMAIL_USER/PASS` | Gmail credentials for interview notifications |
+
+---
+
+## Testing
+
+Backend (Jest, no database or network required — Mongoose models, middleware and
+route handlers are unit tested with mocked collaborators):
+
+```bash
+cd backend
+npm install
+npm test              # run the suite
+npm run test:coverage # run with a coverage report
+```
+
+AI service (pytest, the Gemini SDK is stubbed so no API key is needed):
+
+```bash
+cd backend/ai-service
+pip install -r requirements-dev.txt
+pytest
+pytest --cov=main --cov-report=term-missing
+```
