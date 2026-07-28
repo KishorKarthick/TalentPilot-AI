@@ -20,7 +20,9 @@ export default function ResumeUpload() {
   const [results, setResults] = useState(null);
 
   useEffect(() => {
-    jobsAPI.getAll({ status: 'active', limit: 100 }).then(r => setJobs(r.data));
+    jobsAPI.getAll({ status: 'active', limit: 100 })
+      .then(r => setJobs(r.data))
+      .catch((err) => toast.error(err.message || 'Failed to load jobs'));
   }, []);
 
   const onDrop = useCallback((accepted) => {
@@ -50,7 +52,10 @@ export default function ResumeUpload() {
 
       const res = await resumesAPI.upload(formData);
       setResults(res.results);
-      toast.success(`Processed ${res.results.success.length} resumes`);
+      const { success, duplicates, failed } = res.results;
+      // Per-file failures never reject the request — report them explicitly.
+      if (failed.length) toast.error(`${failed.length} of ${files.length} resumes failed to process`);
+      if (success.length) toast.success(`Processed ${success.length} resumes${duplicates.length ? ` (${duplicates.length} duplicates skipped)` : ''}`);
       setFiles([]);
     } catch (err) {
       toast.error(err.message || 'Upload failed');

@@ -10,6 +10,7 @@ const Candidate = require('../models/Candidate');
 const Job = require('../models/Job');
 const { protect } = require('../middleware/auth');
 const upload = require('../middleware/upload');
+const ApiError = require('../utils/ApiError');
 
 const router = express.Router();
 router.use(protect);
@@ -31,16 +32,30 @@ const computeHash = (filePath) => {
   return crypto.createHash('sha256').update(buffer).digest('hex');
 };
 
-// Call AI service to extract resume data
+// Remove an uploaded temp file, never masking the original failure.
+const discardFile = (filePath) => {
+  try {
+    fs.unlinkSync(filePath);
+  } catch (err) {
+    if (err.code !== 'ENOENT') console.error(`Failed to remove upload ${filePath}: ${err.message}`);
+  }
+};
+
+// Call AI service to extract resume data. Returns { data, error } so callers can
+// distinguish "AI unavailable" from "AI returned nothing" instead of seeing null.
 const processWithAI = async (text, jobDescription = '') => {
   try {
     const response = await axios.post(`${process.env.AI_SERVICE_URL}/extract`, {
       resume_text: text,
       job_description: jobDescription,
     }, { timeout: 30000 });
-    return response.data;
-  } catch {
-    return null;
+    return { data: response.data, error: null };
+  } catch (err) {
+    const error = err.response
+      ? `AI service responded ${err.response.status}: ${err.response.data?.detail || err.response.statusText}`
+      : `AI service unreachable: ${err.message}`;
+    console.error(error);
+    return { data: null, error };
   }
 };
 
@@ -50,6 +65,11 @@ router.post('/upload', upload.array('resumes', 100), async (req, res) => {
   if (!req.files?.length) return res.status(400).json({ success: false, message: 'No files uploaded' });
 
   const job = jobId ? await Job.findById(jobId) : null;
+  if (jobId && !job) {
+    req.files.forEach((file) => discardFile(file.path));
+    return res.status(404).json({ success: false, message: 'Job not found' });
+  }
+
   const results = { success: [], duplicates: [], failed: [] };
 
   for (const file of req.files) {
@@ -61,12 +81,14 @@ router.post('/upload', upload.array('resumes', 100), async (req, res) => {
       const existing = await Resume.findOne({ contentHash: hash });
       if (existing) {
         results.duplicates.push({ file: file.originalname, duplicateOf: existing._id });
-        fs.unlinkSync(file.path);
+        discardFile(file.path);
         continue;
       }
 
       const rawText = await extractText(file.path, ext);
-      const aiData = await processWithAI(rawText, job?.description || '');
+      if (!rawText?.trim()) throw new ApiError(422, 'No readable text found in file');
+
+      const { data: aiData, error: aiError } = await processWithAI(rawText, job?.description || '');
 
       // Upsert candidate
       let candidate = null;
@@ -105,7 +127,8 @@ router.post('/upload', upload.array('resumes', 100), async (req, res) => {
         matchedSkills: aiData?.matchedSkills || [],
         missingSkills: aiData?.missingSkills || [],
         aiSummary: aiData?.aiSummary || aiData?.summary || '',
-        status: 'reviewed',
+        processingError: aiError || undefined,
+        status: aiError ? 'pending' : 'reviewed',
       });
 
       if (candidate) {
@@ -120,13 +143,26 @@ router.post('/upload', upload.array('resumes', 100), async (req, res) => {
         }
       }
 
-      results.success.push({ file: file.originalname, resumeId: resume._id, matchScore: resume.matchScore });
+      results.success.push({
+        file: file.originalname,
+        resumeId: resume._id,
+        matchScore: resume.matchScore,
+        ...(aiError ? { warning: aiError } : {}),
+      });
     } catch (err) {
+      console.error(`Failed to process ${file.originalname}: ${err.message}`);
+      discardFile(file.path);
       results.failed.push({ file: file.originalname, error: err.message });
     }
   }
 
-  res.json({ success: true, results });
+  // Report a failure status when nothing could be processed at all.
+  const processedNothing = !results.success.length && !results.duplicates.length;
+  res.status(processedNothing ? 502 : 200).json({
+    success: !processedNothing,
+    ...(processedNothing ? { message: `All ${results.failed.length} file(s) failed to process: ${results.failed[0].error}` } : {}),
+    results,
+  });
 });
 
 // Get resumes for a job, ranked by match score
@@ -156,7 +192,10 @@ router.get('/:id', async (req, res) => {
 // Update resume status
 router.patch('/:id/status', async (req, res) => {
   const { status } = req.body;
-  const resume = await Resume.findByIdAndUpdate(req.params.id, { status }, { new: true });
+  if (!status) throw new ApiError(400, 'status is required');
+
+  const resume = await Resume.findByIdAndUpdate(req.params.id, { status }, { new: true, runValidators: true });
+  if (!resume) return res.status(404).json({ success: false, message: 'Resume not found' });
   res.json({ success: true, data: resume });
 });
 
@@ -168,8 +207,8 @@ router.post('/:id/rescore', async (req, res) => {
   const job = await Job.findById(req.body.jobId || resume.job);
   if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
 
-  const aiData = await processWithAI(resume.rawText, job.description);
-  if (!aiData) return res.status(500).json({ success: false, message: 'AI service unavailable' });
+  const { data: aiData, error: aiError } = await processWithAI(resume.rawText, job.description);
+  if (!aiData) throw new ApiError(502, `Re-scoring failed — ${aiError}`);
 
   const updated = await Resume.findByIdAndUpdate(req.params.id, {
     matchScore: aiData.matchScore,

@@ -6,6 +6,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/db');
+const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
@@ -34,14 +35,23 @@ app.use('/api/analytics', require('./routes/analytics'));
 // Health Check
 app.get('/health', (req, res) => res.json({ status: 'OK', timestamp: new Date() }));
 
-// Global Error Handler
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(err.statusCode || 500).json({
-    success: false,
-    message: err.message || 'Internal Server Error',
-  });
+// 404 Handler
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: `Route ${req.method} ${req.originalUrl} not found` });
 });
 
+// Global Error Handler
+app.use(errorHandler);
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const server = app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+const shutdownOnFatal = (label) => (err) => {
+  console.error(`${label}:`, err);
+  server.close(() => process.exit(1));
+  // Force exit if the server does not close in time
+  setTimeout(() => process.exit(1), 10000).unref();
+};
+
+process.on('unhandledRejection', shutdownOnFatal('Unhandled promise rejection'));
+process.on('uncaughtException', shutdownOnFatal('Uncaught exception'));

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { jobsAPI, resumesAPI } from '../utils/api';
 import toast from 'react-hot-toast';
+import ErrorState from '../components/ErrorState';
 import { ArrowLeftIcon, UserCircleIcon } from '@heroicons/react/24/outline';
 
 const ScoreBadge = ({ score }) => {
@@ -28,8 +29,11 @@ export default function JobDetail() {
   const [selected, setSelected] = useState(null);
   const [statusFilter, setStatusFilter] = useState('');
   const [minScore, setMinScore] = useState('');
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
+  const load = () => {
+    setLoading(true);
+    setError(null);
     Promise.all([
       jobsAPI.getById(id),
       resumesAPI.getByJob(id, { limit: 100 }),
@@ -37,14 +41,21 @@ export default function JobDetail() {
       setJob(jobRes.data);
       setResumes(resumeRes.data);
       setTotal(resumeRes.total);
-    }).finally(() => setLoading(false));
-  }, [id]);
+    }).catch((err) => setError(err.message || 'Failed to load job'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(load, [id]);
 
   const handleStatusChange = async (resumeId, status) => {
-    await resumesAPI.updateStatus(resumeId, status);
-    setResumes(prev => prev.map(r => r._id === resumeId ? { ...r, status } : r));
-    if (selected?._id === resumeId) setSelected(prev => ({ ...prev, status }));
-    toast.success('Status updated');
+    try {
+      await resumesAPI.updateStatus(resumeId, status);
+      setResumes(prev => prev.map(r => r._id === resumeId ? { ...r, status } : r));
+      if (selected?._id === resumeId) setSelected(prev => ({ ...prev, status }));
+      toast.success('Status updated');
+    } catch (err) {
+      toast.error(err.message || 'Failed to update status');
+    }
   };
 
   const filtered = resumes.filter(r => {
@@ -54,6 +65,7 @@ export default function JobDetail() {
   });
 
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600" /></div>;
+  if (error) return <ErrorState message={error} onRetry={load} />;
 
   return (
     <div className="space-y-6">

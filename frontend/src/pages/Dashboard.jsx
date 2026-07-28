@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { analyticsAPI } from '../utils/api';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend } from 'chart.js';
+import toast from 'react-hot-toast';
+import ErrorState from '../components/ErrorState';
 import { BriefcaseIcon, DocumentTextIcon, UsersIcon, CalendarIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
@@ -23,14 +25,24 @@ const StatCard = ({ icon: Icon, label, value, sub, color }) => (
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
+  const load = () => {
+    setLoading(true);
+    setError(null);
     analyticsAPI.getDashboard()
       .then(({ data }) => setData(data))
+      .catch((err) => {
+        setError(err.message || 'Failed to load dashboard');
+        toast.error(err.message || 'Failed to load dashboard');
+      })
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(load, []);
 
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600" /></div>;
+  if (error) return <ErrorState message={error} onRetry={load} />;
 
   const { overview, scoreDistribution, topSkills, hiringFunnel, recentActivity } = data || {};
 

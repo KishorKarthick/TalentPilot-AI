@@ -3,11 +3,14 @@ const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { protect, authorize } = require('../middleware/auth');
+const ApiError = require('../utils/ApiError');
 
 const router = express.Router();
 
-const generateToken = (id) =>
-  jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRE });
+const generateToken = (id) => {
+  if (!process.env.JWT_SECRET) throw new ApiError(500, 'Authentication is misconfigured');
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRE || '7d' });
+};
 
 router.post('/register', [
   body('name').notEmpty().trim(),
@@ -52,13 +55,16 @@ router.get('/me', protect, (req, res) => res.json({ success: true, user: req.use
 
 router.put('/profile', protect, async (req, res) => {
   const { name, company, avatar } = req.body;
-  const user = await User.findByIdAndUpdate(req.user._id, { name, company, avatar }, { new: true });
+  const user = await User.findByIdAndUpdate(req.user._id, { name, company, avatar }, { new: true, runValidators: true });
+  if (!user) return res.status(404).json({ success: false, message: 'User not found' });
   res.json({ success: true, user });
 });
 
 // Admin only — create any role including admin
 router.post('/users/create', protect, authorize('admin'), async (req, res) => {
   const { name, email, password, role, company } = req.body;
+  if (!name || !email) throw new ApiError(400, 'name and email are required');
+
   const exists = await User.findOne({ email });
   if (exists) return res.status(400).json({ success: false, message: 'Email already registered' });
   const user = await User.create({ name, email, password: password || 'TalentPilot@123', role, company });
@@ -77,7 +83,9 @@ router.patch('/users/:id', protect, authorize('admin'), async (req, res) => {
   const update = {};
   if (role) update.role = role;
   if (typeof isActive === 'boolean') update.isActive = isActive;
-  const user = await User.findByIdAndUpdate(req.params.id, update, { new: true });
+  if (!Object.keys(update).length) throw new ApiError(400, 'Nothing to update — provide role and/or isActive');
+
+  const user = await User.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
   if (!user) return res.status(404).json({ success: false, message: 'User not found' });
   res.json({ success: true, user });
 });

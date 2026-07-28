@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { authAPI } from '../utils/api';
 
 const AuthContext = createContext(null);
@@ -12,7 +13,11 @@ export const AuthProvider = ({ children }) => {
     if (token) {
       authAPI.me()
         .then(({ user }) => setUser(user))
-        .catch(() => localStorage.removeItem('token'))
+        .catch((err) => {
+          // Keep the token on transient failures; only an auth rejection invalidates it.
+          if (err.status === 401 || err.status === 403) localStorage.removeItem('token');
+          else toast.error(err.message || 'Could not restore your session');
+        })
         .finally(() => setLoading(false));
     } else {
       setLoading(false);

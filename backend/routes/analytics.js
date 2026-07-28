@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const Resume = require('../models/Resume');
 const Job = require('../models/Job');
 const Candidate = require('../models/Candidate');
@@ -59,14 +60,18 @@ router.get('/dashboard', async (req, res) => {
 
 router.get('/jobs/:jobId', async (req, res) => {
   const jobId = req.params.jobId;
+  if (!mongoose.isValidObjectId(jobId))
+    return res.status(400).json({ success: false, message: 'Invalid job id' });
+
+  const jobObjectId = mongoose.Types.ObjectId.createFromHexString(jobId);
   const [total, byStatus, avgScore, topCandidates] = await Promise.all([
     Resume.countDocuments({ job: jobId, isDuplicate: false }),
     Resume.aggregate([
-      { $match: { job: require('mongoose').Types.ObjectId.createFromHexString(jobId) } },
+      { $match: { job: jobObjectId } },
       { $group: { _id: '$status', count: { $sum: 1 } } },
     ]),
     Resume.aggregate([
-      { $match: { job: require('mongoose').Types.ObjectId.createFromHexString(jobId) } },
+      { $match: { job: jobObjectId } },
       { $group: { _id: null, avg: { $avg: '$matchScore' }, max: { $max: '$matchScore' } } },
     ]),
     Resume.find({ job: jobId }).sort('-matchScore').limit(5).populate('candidate', 'name email'),
