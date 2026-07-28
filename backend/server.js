@@ -6,6 +6,20 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/db');
+const sanitizeRequest = require('./middleware/sanitize');
+
+const REQUIRED_ENV = ['MONGO_URI', 'JWT_SECRET', 'CLIENT_URL'];
+const missingEnv = REQUIRED_ENV.filter((key) => !process.env[key]);
+if (missingEnv.length) {
+  console.error(`Missing required environment variables: ${missingEnv.join(', ')}`);
+  process.exit(1);
+}
+if (process.env.JWT_SECRET.length < 32) {
+  console.error('JWT_SECRET must be at least 32 characters long');
+  process.exit(1);
+}
+
+const allowedOrigins = process.env.CLIENT_URL.split(',').map((o) => o.trim()).filter(Boolean);
 
 const app = express();
 
@@ -14,10 +28,19 @@ connectDB();
 
 // Security Middleware
 app.use(helmet());
-app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
-app.use(morgan('dev'));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    const err = new Error('Origin not allowed by CORS');
+    err.statusCode = 403;
+    callback(err);
+  },
+  credentials: true,
+}));
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use(sanitizeRequest);
 
 // Rate Limiting
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
@@ -32,14 +55,15 @@ app.use('/api/interviews', require('./routes/interviews'));
 app.use('/api/analytics', require('./routes/analytics'));
 
 // Health Check
-app.get('/health', (req, res) => res.json({ status: 'OK', timestamp: new Date() }));
+app.get('/health', (req, res) => res.json({ status: 'OK' }));
 
 // Global Error Handler
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(err.statusCode || 500).json({
+  const statusCode = err.statusCode || 500;
+  if (statusCode >= 500) console.error(err.stack);
+  res.status(statusCode).json({
     success: false,
-    message: err.message || 'Internal Server Error',
+    message: statusCode >= 500 ? 'Internal Server Error' : err.message,
   });
 });
 
