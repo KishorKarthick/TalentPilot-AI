@@ -10,6 +10,8 @@ const Candidate = require('../models/Candidate');
 const Job = require('../models/Job');
 const { protect } = require('../middleware/auth');
 const upload = require('../middleware/upload');
+const { sendSuccess, sendError, notFound } = require('../utils/apiResponse');
+const { getPagination, paginationMeta } = require('../utils/pagination');
 
 const router = express.Router();
 router.use(protect);
@@ -47,7 +49,7 @@ const processWithAI = async (text, jobDescription = '') => {
 // Bulk upload resumes
 router.post('/upload', upload.array('resumes', 100), async (req, res) => {
   const { jobId } = req.body;
-  if (!req.files?.length) return res.status(400).json({ success: false, message: 'No files uploaded' });
+  if (!req.files?.length) return sendError(res, 'No files uploaded', 400);
 
   const job = jobId ? await Job.findById(jobId) : null;
   const results = { success: [], duplicates: [], failed: [] };
@@ -126,50 +128,51 @@ router.post('/upload', upload.array('resumes', 100), async (req, res) => {
     }
   }
 
-  res.json({ success: true, results });
+  sendSuccess(res, { results });
 });
 
 // Get resumes for a job, ranked by match score
 router.get('/job/:jobId', async (req, res) => {
-  const { page = 1, limit = 20, status, minScore } = req.query;
+  const { status, minScore } = req.query;
+  const { limit, skip } = getPagination(req.query, 20);
   const query = { job: req.params.jobId, isDuplicate: false };
   if (status) query.status = status;
   if (minScore) query.matchScore = { $gte: Number(minScore) };
 
   const [resumes, total] = await Promise.all([
     Resume.find(query).populate('candidate', 'name email phone').sort('-matchScore')
-      .skip((page - 1) * limit).limit(Number(limit)),
+      .skip(skip).limit(limit),
     Resume.countDocuments(query),
   ]);
 
-  res.json({ success: true, data: resumes, total, pages: Math.ceil(total / limit) });
+  sendSuccess(res, { data: resumes, ...paginationMeta(total, limit) });
 });
 
 // Get single resume
 router.get('/:id', async (req, res) => {
   const resume = await Resume.findById(req.params.id)
     .populate('candidate').populate('job', 'title company');
-  if (!resume) return res.status(404).json({ success: false, message: 'Resume not found' });
-  res.json({ success: true, data: resume });
+  if (!resume) return notFound(res, 'Resume');
+  sendSuccess(res, { data: resume });
 });
 
 // Update resume status
 router.patch('/:id/status', async (req, res) => {
   const { status } = req.body;
   const resume = await Resume.findByIdAndUpdate(req.params.id, { status }, { new: true });
-  res.json({ success: true, data: resume });
+  sendSuccess(res, { data: resume });
 });
 
 // Re-score resume against a job
 router.post('/:id/rescore', async (req, res) => {
   const resume = await Resume.findById(req.params.id);
-  if (!resume) return res.status(404).json({ success: false, message: 'Resume not found' });
+  if (!resume) return notFound(res, 'Resume');
 
   const job = await Job.findById(req.body.jobId || resume.job);
-  if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
+  if (!job) return notFound(res, 'Job');
 
   const aiData = await processWithAI(resume.rawText, job.description);
-  if (!aiData) return res.status(500).json({ success: false, message: 'AI service unavailable' });
+  if (!aiData) return sendError(res, 'AI service unavailable', 500);
 
   const updated = await Resume.findByIdAndUpdate(req.params.id, {
     matchScore: aiData.matchScore,
@@ -180,7 +183,7 @@ router.post('/:id/rescore', async (req, res) => {
     aiSummary: aiData.aiSummary || aiData.summary || '',
   }, { new: true });
 
-  res.json({ success: true, data: updated });
+  sendSuccess(res, { data: updated });
 });
 
 module.exports = router;

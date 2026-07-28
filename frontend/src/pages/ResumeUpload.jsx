@@ -4,6 +4,7 @@ import { jobsAPI, resumesAPI } from '../utils/api';
 import { useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { CloudArrowUpIcon, DocumentTextIcon, CheckCircleIcon, XCircleIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
+import { scoreColorClass } from '../utils/score';
 
 const StatusIcon = ({ status }) => {
   if (status === 'success') return <CheckCircleIcon className="w-5 h-5 text-green-500" />;
@@ -127,7 +128,7 @@ export default function ResumeUpload() {
               <div key={i} className="flex items-center gap-3 px-5 py-3">
                 <StatusIcon status="success" />
                 <span className="flex-1 text-sm text-gray-700 truncate">{r.file}</span>
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${r.matchScore >= 70 ? 'bg-green-100 text-green-700' : r.matchScore >= 40 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${scoreColorClass(r.matchScore)}`}>
                   {r.matchScore}% match
                 </span>
               </div>

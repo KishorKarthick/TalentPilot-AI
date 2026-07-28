@@ -3,6 +3,7 @@ import { interviewsAPI, candidatesAPI, jobsAPI } from '../utils/api';
 import toast from 'react-hot-toast';
 import { PlusIcon, CalendarIcon } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';
+import Spinner from '../components/Spinner';
 
 const STATUS_COLORS = { scheduled: 'bg-blue-100 text-blue-700', completed: 'bg-green-100 text-green-700', cancelled: 'bg-red-100 text-red-700', rescheduled: 'bg-yellow-100 text-yellow-700', no_show: 'bg-gray-100 text-gray-600' };
 
@@ -206,7 +207,7 @@ export default function Interviews() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" /></div>
+        <Spinner />
       ) : (
         <div className="space-y-3">
           {interviews.map((iv) => (

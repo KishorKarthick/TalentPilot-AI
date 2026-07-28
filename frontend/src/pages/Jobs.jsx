@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { jobsAPI } from '../utils/api';
 import toast from 'react-hot-toast';
 import { PlusIcon, MagnifyingGlassIcon, BriefcaseIcon } from '@heroicons/react/24/outline';
+import Spinner from '../components/Spinner';
 
 const STATUS_COLORS = { active: 'bg-success-100 text-success-700', paused: 'bg-warning-100 text-warning-700', closed: 'bg-gray-100 text-gray-600', draft: 'bg-blue-100 text-blue-700' };
 
@@ -152,7 +153,7 @@ export default function Jobs() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" /></div>
+        <Spinner />
       ) : (
         <div className="grid gap-4">
           {jobs.map((job) => (

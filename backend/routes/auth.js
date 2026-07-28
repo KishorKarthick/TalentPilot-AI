@@ -1,8 +1,10 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const { body, validationResult } = require('express-validator');
+const { body } = require('express-validator');
 const User = require('../models/User');
 const { protect, authorize } = require('../middleware/auth');
+const { handleValidation } = require('../middleware/validate');
+const { sendSuccess, sendError, notFound } = require('../utils/apiResponse');
 
 const router = express.Router();
 
@@ -13,62 +15,56 @@ router.post('/register', [
   body('name').notEmpty().trim(),
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 6 }),
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
-
+], handleValidation, async (req, res) => {
   const { name, email, password, role, company } = req.body;
   const exists = await User.findOne({ email });
-  if (exists) return res.status(400).json({ success: false, message: 'Email already registered' });
+  if (exists) return sendError(res, 'Email already registered', 400);
 
   // Block public admin registration — admin role can only be assigned by existing admin
   if (role === 'admin') {
-    return res.status(403).json({ success: false, message: 'Admin accounts can only be created by an existing admin.' });
+    return sendError(res, 'Admin accounts can only be created by an existing admin.', 403);
   }
 
   const user = await User.create({ name, email, password, role: role || 'recruiter', company });
-  res.status(201).json({ success: true, token: generateToken(user._id), user });
+  sendSuccess(res, { token: generateToken(user._id), user }, 201);
 });
 
 router.post('/login', [
   body('email').isEmail().normalizeEmail(),
   body('password').notEmpty(),
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
-
+], handleValidation, async (req, res) => {
   const { email, password } = req.body;
   const user = await User.findOne({ email }).select('+password');
   if (!user || !(await user.matchPassword(password)))
-    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    return sendError(res, 'Invalid credentials', 401);
 
   user.lastLogin = new Date();
   await user.save();
 
-  res.json({ success: true, token: generateToken(user._id), user });
+  sendSuccess(res, { token: generateToken(user._id), user });
 });
 
-router.get('/me', protect, (req, res) => res.json({ success: true, user: req.user }));
+router.get('/me', protect, (req, res) => sendSuccess(res, { user: req.user }));
 
 router.put('/profile', protect, async (req, res) => {
   const { name, company, avatar } = req.body;
   const user = await User.findByIdAndUpdate(req.user._id, { name, company, avatar }, { new: true });
-  res.json({ success: true, user });
+  sendSuccess(res, { user });
 });
 
 // Admin only — create any role including admin
 router.post('/users/create', protect, authorize('admin'), async (req, res) => {
   const { name, email, password, role, company } = req.body;
   const exists = await User.findOne({ email });
-  if (exists) return res.status(400).json({ success: false, message: 'Email already registered' });
+  if (exists) return sendError(res, 'Email already registered', 400);
   const user = await User.create({ name, email, password: password || 'TalentPilot@123', role, company });
-  res.status(201).json({ success: true, user });
+  sendSuccess(res, { user }, 201);
 });
 
 // Admin only — get all users
 router.get('/users', protect, authorize('admin'), async (req, res) => {
   const users = await User.find().sort('-createdAt');
-  res.json({ success: true, data: users });
+  sendSuccess(res, { data: users });
 });
 
 // Admin only — update user role or status
@@ -78,8 +74,8 @@ router.patch('/users/:id', protect, authorize('admin'), async (req, res) => {
   if (role) update.role = role;
   if (typeof isActive === 'boolean') update.isActive = isActive;
   const user = await User.findByIdAndUpdate(req.params.id, update, { new: true });
-  if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-  res.json({ success: true, user });
+  if (!user) return notFound(res, 'User');
+  sendSuccess(res, { user });
 });
 
 module.exports = router;

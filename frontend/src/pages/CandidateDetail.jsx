@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { candidatesAPI } from '../utils/api';
 import toast from 'react-hot-toast';
 import { ArrowLeftIcon, UserCircleIcon } from '@heroicons/react/24/outline';
+import Spinner from '../components/Spinner';
 
 const STATUS_COLORS = { applied: 'bg-blue-100 text-blue-700', screening: 'bg-yellow-100 text-yellow-700', interview: 'bg-purple-100 text-purple-700', offer: 'bg-green-100 text-green-700', hired: 'bg-emerald-100 text-emerald-700', rejected: 'bg-red-100 text-red-700' };
 
@@ -30,7 +31,7 @@ export default function CandidateDetail() {
     }
   };
 
-  if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600" /></div>;
+  if (loading) return <Spinner size="md" wrapperClassName="flex justify-center py-20" />;
   if (!candidate) return <div className="text-center py-20 text-gray-400">Candidate not found</div>;
 
   const { extractedData } = candidate.resumes?.[0] || {};

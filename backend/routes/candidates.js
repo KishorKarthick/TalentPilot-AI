@@ -1,12 +1,15 @@
 const express = require('express');
 const Candidate = require('../models/Candidate');
 const { protect } = require('../middleware/auth');
+const { sendSuccess, notFound } = require('../utils/apiResponse');
+const { getPagination, paginationMeta } = require('../utils/pagination');
 
 const router = express.Router();
 router.use(protect);
 
 router.get('/', async (req, res) => {
-  const { search, skills, page = 1, limit = 20 } = req.query;
+  const { search, skills } = req.query;
+  const { limit, skip } = getPagination(req.query, 20);
   const query = {};
   if (search) query.$or = [
     { name: { $regex: search, $options: 'i' } },
@@ -16,18 +19,18 @@ router.get('/', async (req, res) => {
   if (skills) query.skills = { $in: skills.split(',') };
 
   const [candidates, total] = await Promise.all([
-    Candidate.find(query).sort('-createdAt').skip((page - 1) * limit).limit(Number(limit)),
+    Candidate.find(query).sort('-createdAt').skip(skip).limit(limit),
     Candidate.countDocuments(query),
   ]);
 
-  res.json({ success: true, data: candidates, total, pages: Math.ceil(total / limit) });
+  sendSuccess(res, { data: candidates, ...paginationMeta(total, limit) });
 });
 
 router.get('/:id', async (req, res) => {
   const candidate = await Candidate.findById(req.params.id)
     .populate('resumes').populate('applications.job', 'title company');
-  if (!candidate) return res.status(404).json({ success: false, message: 'Candidate not found' });
-  res.json({ success: true, data: candidate });
+  if (!candidate) return notFound(res, 'Candidate');
+  sendSuccess(res, { data: candidate });
 });
 
 router.post('/:id/notes', async (req, res) => {
@@ -36,7 +39,7 @@ router.post('/:id/notes', async (req, res) => {
     { $push: { notes: { text: req.body.text, addedBy: req.user._id } } },
     { new: true }
   );
-  res.json({ success: true, data: candidate });
+  sendSuccess(res, { data: candidate });
 });
 
 router.patch('/:id/status', async (req, res) => {
@@ -46,7 +49,7 @@ router.patch('/:id/status', async (req, res) => {
     { $set: { 'applications.$.status': status } },
     { new: true }
   );
-  res.json({ success: true, data: candidate });
+  sendSuccess(res, { data: candidate });
 });
 
 module.exports = router;

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { candidatesAPI } from '../utils/api';
 import { MagnifyingGlassIcon, UserCircleIcon } from '@heroicons/react/24/outline';
+import Spinner from '../components/Spinner';
 
 export default function Candidates() {
   const [candidates, setCandidates] = useState([]);
@@ -35,7 +36,7 @@ export default function Candidates() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" /></div>
+        <Spinner />
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <table className="w-full">
