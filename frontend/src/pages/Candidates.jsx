@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { candidatesAPI } from '../utils/api';
+import ErrorState from '../components/ErrorState';
 import { MagnifyingGlassIcon, UserCircleIcon } from '@heroicons/react/24/outline';
 
 export default function Candidates() {
@@ -9,13 +10,21 @@ export default function Candidates() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [skills, setSkills] = useState('');
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
+  const load = () => {
     setLoading(true);
+    setError(null);
     candidatesAPI.getAll({ search, skills, limit: 50 })
       .then(r => { setCandidates(r.data); setTotal(r.total); })
+      .catch((err) => {
+        setCandidates([]);
+        setError(err.message || 'Failed to load candidates');
+      })
       .finally(() => setLoading(false));
-  }, [search, skills]);
+  };
+
+  useEffect(load, [search, skills]);
 
   return (
     <div className="space-y-6">
@@ -36,6 +45,8 @@ export default function Candidates() {
 
       {loading ? (
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" /></div>
+      ) : error ? (
+        <ErrorState message={error} onRetry={load} />
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <table className="w-full">

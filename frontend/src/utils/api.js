@@ -8,14 +8,37 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Turns every axios failure into a real Error with a human-readable `message`,
+// so callers can rely on `err.message` instead of an arbitrary response body.
+const normalizeError = (err) => {
+  const data = err.response?.data;
+  const fieldErrors = data?.details || data?.errors;
+  const message =
+    data?.message ||
+    fieldErrors?.map((e) => e.msg || e.message).filter(Boolean).join(', ') ||
+    (err.response
+      ? `Request failed (${err.response.status})`
+      : 'Cannot reach the server. Check your connection and try again.');
+
+  const normalized = new Error(message);
+  normalized.status = err.response?.status;
+  normalized.details = fieldErrors;
+  normalized.cause = err;
+  return normalized;
+};
+
 api.interceptors.response.use(
   (res) => res.data,
   (err) => {
-    if (err.response?.status === 401) {
+    const normalized = normalizeError(err);
+    console.error(`API ${err.config?.method?.toUpperCase()} ${err.config?.url} failed:`, normalized.message);
+
+    // Only an expired/invalid session should bounce the user to the login page.
+    if (normalized.status === 401 && !window.location.pathname.startsWith('/login')) {
       localStorage.removeItem('token');
       window.location.href = '/login';
     }
-    return Promise.reject(err.response?.data || err);
+    return Promise.reject(normalized);
   }
 );
 

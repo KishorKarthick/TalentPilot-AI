@@ -8,15 +8,20 @@ const protect = async (req, res, next) => {
 
   if (!token) return res.status(401).json({ success: false, message: 'Not authorized' });
 
+  let decoded;
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.id).select('-password');
-    if (!req.user || !req.user.isActive)
-      return res.status(401).json({ success: false, message: 'User not found or inactive' });
-    next();
-  } catch {
-    res.status(401).json({ success: false, message: 'Invalid token' });
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (err) {
+    console.warn(`Token verification failed (${err.name}): ${err.message}`);
+    const expired = err.name === 'TokenExpiredError';
+    return res.status(401).json({ success: false, message: expired ? 'Token expired' : 'Invalid token' });
   }
+
+  // Lookup failures (e.g. database down) must surface as 500, not as "invalid token".
+  req.user = await User.findById(decoded.id).select('-password');
+  if (!req.user || !req.user.isActive)
+    return res.status(401).json({ success: false, message: 'User not found or inactive' });
+  next();
 };
 
 const authorize = (...roles) => (req, res, next) => {

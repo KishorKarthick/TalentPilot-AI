@@ -46,7 +46,8 @@ router.put('/:id', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
-  await Job.findByIdAndDelete(req.params.id);
+  const job = await Job.findByIdAndDelete(req.params.id);
+  if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
   res.json({ success: true, message: 'Job deleted' });
 });
 

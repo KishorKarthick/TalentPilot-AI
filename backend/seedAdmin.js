@@ -42,4 +42,7 @@ async function seedAdmin() {
   await mongoose.disconnect();
 }
 
-seedAdmin().catch(console.error);
+seedAdmin().catch((err) => {
+  console.error('Admin seeding failed:', err);
+  process.exit(1);
+});

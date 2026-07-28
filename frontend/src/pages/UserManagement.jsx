@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
+import ErrorState from '../components/ErrorState';
 import { UserCircleIcon, ShieldCheckIcon, PlusIcon } from '@heroicons/react/24/outline';
 
 const ROLE_COLORS = {
@@ -80,13 +81,19 @@ export default function UserManagement() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [error, setError] = useState(null);
 
   if (user?.role !== 'admin') return <Navigate to="/dashboard" replace />;
 
   const fetchUsers = () => {
     setLoading(true);
+    setError(null);
     api.get('/auth/users')
       .then(r => setUsers(r.data))
+      .catch((err) => {
+        setUsers([]);
+        setError(err.message || 'Failed to load users');
+      })
       .finally(() => setLoading(false));
   };
 
@@ -97,8 +104,8 @@ export default function UserManagement() {
       await api.patch(`/auth/users/${id}`, { isActive: !isActive });
       setUsers(prev => prev.map(u => u._id === id ? { ...u, isActive: !isActive } : u));
       toast.success(`User ${!isActive ? 'activated' : 'deactivated'}`);
-    } catch {
-      toast.error('Failed to update user');
+    } catch (err) {
+      toast.error(err.message || 'Failed to update user');
     }
   };
 
@@ -107,8 +114,8 @@ export default function UserManagement() {
       await api.patch(`/auth/users/${id}`, { role });
       setUsers(prev => prev.map(u => u._id === id ? { ...u, role } : u));
       toast.success('Role updated');
-    } catch {
-      toast.error('Failed to update role');
+    } catch (err) {
+      toast.error(err.message || 'Failed to update role');
     }
   };
 
@@ -135,6 +142,8 @@ export default function UserManagement() {
 
       {loading ? (
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600" /></div>
+      ) : error ? (
+        <ErrorState message={error} onRetry={fetchUsers} />
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <table className="w-full">

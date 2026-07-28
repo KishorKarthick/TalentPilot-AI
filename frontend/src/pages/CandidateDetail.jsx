@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { candidatesAPI } from '../utils/api';
 import toast from 'react-hot-toast';
+import ErrorState from '../components/ErrorState';
 import { ArrowLeftIcon, UserCircleIcon } from '@heroicons/react/24/outline';
 
 const STATUS_COLORS = { applied: 'bg-blue-100 text-blue-700', screening: 'bg-yellow-100 text-yellow-700', interview: 'bg-purple-100 text-purple-700', offer: 'bg-green-100 text-green-700', hired: 'bg-emerald-100 text-emerald-700', rejected: 'bg-red-100 text-red-700' };
@@ -12,10 +13,18 @@ export default function CandidateDetail() {
   const [loading, setLoading] = useState(true);
   const [note, setNote] = useState('');
   const [addingNote, setAddingNote] = useState(false);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    candidatesAPI.getById(id).then(r => setCandidate(r.data)).finally(() => setLoading(false));
-  }, [id]);
+  const load = () => {
+    setLoading(true);
+    setError(null);
+    candidatesAPI.getById(id)
+      .then(r => setCandidate(r.data))
+      .catch((err) => setError(err.message || 'Failed to load candidate'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(load, [id]);
 
   const handleAddNote = async () => {
     if (!note.trim()) return;
@@ -25,12 +34,15 @@ export default function CandidateDetail() {
       setCandidate(res.data);
       setNote('');
       toast.success('Note added');
+    } catch (err) {
+      toast.error(err.message || 'Failed to add note');
     } finally {
       setAddingNote(false);
     }
   };
 
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600" /></div>;
+  if (error) return <ErrorState message={error} onRetry={load} />;
   if (!candidate) return <div className="text-center py-20 text-gray-400">Candidate not found</div>;
 
   const { extractedData } = candidate.resumes?.[0] || {};

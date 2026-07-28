@@ -4,11 +4,15 @@ from pydantic import BaseModel
 from typing import Optional
 import google.generativeai as genai
 import json
+import logging
 import os
 import re
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logger = logging.getLogger("talentpilot.ai")
 
 app = FastAPI(title="TalentPilot AI Service", version="1.0.0")
 
@@ -19,7 +23,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY", "placeholder"))
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    logger.warning("GEMINI_API_KEY is not set — every extraction request will fail")
+
+genai.configure(api_key=GEMINI_API_KEY or "placeholder")
 model = genai.GenerativeModel("gemini-1.5-flash")
 
 
@@ -90,6 +98,31 @@ def clean_json(text: str) -> str:
     return re.sub(r"```json\s*|\s*```", "", text).strip()
 
 
+def generate_json(prompt: str, operation: str) -> dict:
+    """Call Gemini and parse its JSON reply, mapping every failure to a precise status code."""
+    if not GEMINI_API_KEY:
+        raise HTTPException(status_code=503, detail="AI service is not configured: GEMINI_API_KEY is missing")
+
+    try:
+        response = model.generate_content(prompt)
+    except Exception as exc:
+        logger.exception("%s: Gemini request failed", operation)
+        raise HTTPException(status_code=502, detail=f"AI provider request failed: {exc}") from exc
+
+    try:
+        text = response.text
+    except Exception as exc:
+        # Raised when the response was blocked by safety filters or has no candidates.
+        logger.error("%s: no usable text in Gemini response: %s", operation, exc)
+        raise HTTPException(status_code=502, detail="AI provider returned no usable content") from exc
+
+    try:
+        return json.loads(clean_json(text))
+    except json.JSONDecodeError as exc:
+        logger.error("%s: AI returned invalid JSON: %s", operation, text[:500])
+        raise HTTPException(status_code=502, detail="AI returned invalid JSON") from exc
+
+
 @app.post("/extract")
 async def extract_resume(request: ResumeRequest):
     if not request.resume_text.strip():
@@ -100,14 +133,7 @@ async def extract_resume(request: ResumeRequest):
         job_description=request.job_description[:2000] if request.job_description else "Not provided"
     )
 
-    try:
-        response = model.generate_content(prompt)
-        text = clean_json(response.text)
-        return json.loads(text)
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=500, detail="AI returned invalid JSON")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return generate_json(prompt, "extract")
 
 
 @app.post("/match")
@@ -131,11 +157,7 @@ Job: {request.job_description[:2000]}
 }}
 """
 
-    try:
-        response = model.generate_content(prompt)
-        return json.loads(clean_json(response.text))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return generate_json(prompt, "match")
 
 
 @app.get("/health")

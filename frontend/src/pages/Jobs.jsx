@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { jobsAPI } from '../utils/api';
 import toast from 'react-hot-toast';
+import ErrorState from '../components/ErrorState';
 import { PlusIcon, MagnifyingGlassIcon, BriefcaseIcon } from '@heroicons/react/24/outline';
 
 const STATUS_COLORS = { active: 'bg-success-100 text-success-700', paused: 'bg-warning-100 text-warning-700', closed: 'bg-gray-100 text-gray-600', draft: 'bg-blue-100 text-blue-700' };
@@ -93,13 +94,18 @@ export default function Jobs() {
   const [status, setStatus] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editJob, setEditJob] = useState(null);
+  const [error, setError] = useState(null);
 
   const fetchJobs = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await jobsAPI.getAll({ search, status, limit: 50 });
       setJobs(res.data);
       setTotal(res.total);
+    } catch (err) {
+      setJobs([]);
+      setError(err.message || 'Failed to load jobs');
     } finally {
       setLoading(false);
     }
@@ -121,9 +127,13 @@ export default function Jobs() {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this job?')) return;
-    await jobsAPI.delete(id);
-    toast.success('Job deleted');
-    fetchJobs();
+    try {
+      await jobsAPI.delete(id);
+      toast.success('Job deleted');
+      fetchJobs();
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete job');
+    }
   };
 
   return (
@@ -153,6 +163,8 @@ export default function Jobs() {
 
       {loading ? (
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" /></div>
+      ) : error ? (
+        <ErrorState message={error} onRetry={fetchJobs} />
       ) : (
         <div className="grid gap-4">
           {jobs.map((job) => (

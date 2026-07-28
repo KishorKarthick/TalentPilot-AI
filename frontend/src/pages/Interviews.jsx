@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { interviewsAPI, candidatesAPI, jobsAPI } from '../utils/api';
 import toast from 'react-hot-toast';
+import ErrorState from '../components/ErrorState';
 import { PlusIcon, CalendarIcon } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';
 
@@ -14,7 +15,8 @@ const ScheduleModal = ({ onClose, onSave }) => {
 
   useEffect(() => {
     Promise.all([candidatesAPI.getAll({ limit: 100 }), jobsAPI.getAll({ status: 'active', limit: 100 })])
-      .then(([c, j]) => { setCandidates(c.data); setJobs(j.data); });
+      .then(([c, j]) => { setCandidates(c.data); setJobs(j.data); })
+      .catch((err) => toast.error(err.message || 'Failed to load candidates and jobs'));
   }, []);
 
   const handleSubmit = async (e) => {
@@ -163,19 +165,27 @@ export default function Interviews() {
   const [showSchedule, setShowSchedule] = useState(false);
   const [feedbackInterview, setFeedbackInterview] = useState(null);
   const [statusFilter, setStatusFilter] = useState('');
+  const [error, setError] = useState(null);
 
   const fetchInterviews = () => {
     setLoading(true);
+    setError(null);
     interviewsAPI.getAll({ status: statusFilter })
       .then(r => setInterviews(r.data))
+      .catch((err) => {
+        setInterviews([]);
+        setError(err.message || 'Failed to load interviews');
+      })
       .finally(() => setLoading(false));
   };
 
   useEffect(() => { fetchInterviews(); }, [statusFilter]);
 
   const handleSchedule = async (data) => {
-    await interviewsAPI.create(data);
-    toast.success('Interview scheduled! Candidate notified via email.');
+    const res = await interviewsAPI.create(data);
+    // The interview is saved even when the notification email fails — say which happened.
+    if (res.emailSent) toast.success('Interview scheduled! Candidate notified via email.');
+    else toast(`Interview scheduled, but no email was sent: ${res.emailError}`, { icon: '⚠️' });
     fetchInterviews();
   };
 
@@ -207,6 +217,8 @@ export default function Interviews() {
 
       {loading ? (
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" /></div>
+      ) : error ? (
+        <ErrorState message={error} onRetry={fetchInterviews} />
       ) : (
         <div className="space-y-3">
           {interviews.map((iv) => (

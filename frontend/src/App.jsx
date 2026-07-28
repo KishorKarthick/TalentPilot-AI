@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
+import ErrorBoundary from './components/ErrorBoundary';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -30,23 +31,25 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
-        <Routes>
-          <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-          <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
-          <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="jobs" element={<Jobs />} />
-            <Route path="jobs/:id" element={<JobDetail />} />
-            <Route path="resumes/upload" element={<ResumeUpload />} />
-            <Route path="candidates" element={<Candidates />} />
-            <Route path="candidates/:id" element={<CandidateDetail />} />
-            <Route path="interviews" element={<Interviews />} />
-            <Route path="analytics" element={<Analytics />} />
-            <Route path="admin/users" element={<UserManagement />} />
-          </Route>
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
+        <ErrorBoundary>
+          <Routes>
+            <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+            <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+            <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="jobs" element={<Jobs />} />
+              <Route path="jobs/:id" element={<JobDetail />} />
+              <Route path="resumes/upload" element={<ResumeUpload />} />
+              <Route path="candidates" element={<Candidates />} />
+              <Route path="candidates/:id" element={<CandidateDetail />} />
+              <Route path="interviews" element={<Interviews />} />
+              <Route path="analytics" element={<Analytics />} />
+              <Route path="admin/users" element={<UserManagement />} />
+            </Route>
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </ErrorBoundary>
       </BrowserRouter>
     </AuthProvider>
   );

@@ -13,7 +13,9 @@ const transporter = nodemailer.createTransport({
   auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
 });
 
+// Returns null on success, or the failure reason so the caller can report it.
 const sendInterviewEmail = async (candidate, interview, job) => {
+  if (!candidate?.email) return 'Candidate has no email address on file';
   try {
     await transporter.sendMail({
       from: `"Smart ATS" <${process.env.EMAIL_USER}>`,
@@ -32,8 +34,10 @@ const sendInterviewEmail = async (candidate, interview, job) => {
         <p>Best regards,<br/>Recruitment Team</p>
       `,
     });
+    return null;
   } catch (err) {
     console.error('Email send failed:', err.message);
+    return `Notification email could not be sent: ${err.message}`;
   }
 };
 
@@ -44,8 +48,8 @@ router.post('/', async (req, res) => {
     { path: 'job', select: 'title company' },
   ]);
 
-  await sendInterviewEmail(populated.candidate, interview, populated.job);
-  res.status(201).json({ success: true, data: populated });
+  const emailError = await sendInterviewEmail(populated.candidate, interview, populated.job);
+  res.status(201).json({ success: true, data: populated, emailSent: !emailError, ...(emailError ? { emailError } : {}) });
 });
 
 router.get('/', async (req, res) => {
@@ -77,7 +81,8 @@ router.get('/:id', async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
-  const interview = await Interview.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  const interview = await Interview.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+  if (!interview) return res.status(404).json({ success: false, message: 'Interview not found' });
   res.json({ success: true, data: interview });
 });
 
@@ -85,8 +90,9 @@ router.post('/:id/feedback', async (req, res) => {
   const interview = await Interview.findByIdAndUpdate(
     req.params.id,
     { feedback: { ...req.body, submittedBy: req.user._id, submittedAt: new Date() }, status: 'completed' },
-    { new: true }
+    { new: true, runValidators: true }
   );
+  if (!interview) return res.status(404).json({ success: false, message: 'Interview not found' });
   res.json({ success: true, data: interview });
 });
 

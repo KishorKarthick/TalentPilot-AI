@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { analyticsAPI, jobsAPI } from '../utils/api';
 import { Bar, Doughnut, Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Tooltip, Legend, Filler } from 'chart.js';
+import toast from 'react-hot-toast';
+import ErrorState from '../components/ErrorState';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Tooltip, Legend, Filler);
 
@@ -11,22 +13,31 @@ export default function Analytics() {
   const [selectedJob, setSelectedJob] = useState('');
   const [jobData, setJobData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
+  const load = () => {
+    setLoading(true);
+    setError(null);
     Promise.all([analyticsAPI.getDashboard(), jobsAPI.getAll({ limit: 100 })])
       .then(([dash, j]) => { setData(dash.data); setJobs(j.data); })
+      .catch((err) => setError(err.message || 'Failed to load analytics'))
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(load, []);
 
   useEffect(() => {
-    if (selectedJob) {
-      analyticsAPI.getJobAnalytics(selectedJob).then(r => setJobData(r.data));
-    } else {
-      setJobData(null);
-    }
+    if (!selectedJob) return setJobData(null);
+    analyticsAPI.getJobAnalytics(selectedJob)
+      .then(r => setJobData(r.data))
+      .catch((err) => {
+        setJobData(null);
+        toast.error(err.message || 'Failed to load job analytics');
+      });
   }, [selectedJob]);
 
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600" /></div>;
+  if (error) return <ErrorState message={error} onRetry={load} />;
 
   const { overview, scoreDistribution, topSkills, hiringFunnel } = data || {};
 
