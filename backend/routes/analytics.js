@@ -4,6 +4,7 @@ const Job = require('../models/Job');
 const Candidate = require('../models/Candidate');
 const Interview = require('../models/Interview');
 const { protect } = require('../middleware/auth');
+const { isValidObjectId } = require('../utils/security');
 
 const router = express.Router();
 router.use(protect);
@@ -59,6 +60,9 @@ router.get('/dashboard', async (req, res) => {
 
 router.get('/jobs/:jobId', async (req, res) => {
   const jobId = req.params.jobId;
+  if (!isValidObjectId(jobId))
+    return res.status(400).json({ success: false, message: 'Invalid job id' });
+
   const [total, byStatus, avgScore, topCandidates] = await Promise.all([
     Resume.countDocuments({ job: jobId, isDuplicate: false }),
     Resume.aggregate([

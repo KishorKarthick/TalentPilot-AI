@@ -5,8 +5,8 @@ services:
     image: mongo:7
     container_name: smart-ats-mongo
     restart: unless-stopped
-    ports:
-      - "27017:27017"
+    expose:
+      - "27017"
     volumes:
       - mongo_data:/data/db
     environment:
@@ -21,8 +21,8 @@ services:
     environment:
       - MONGO_URI=mongodb://mongo:27017/smart-ats
       - JWT_SECRET=${JWT_SECRET}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
       - AI_SERVICE_URL=http://ai-service:8000
+      - AI_SERVICE_API_KEY=${AI_SERVICE_API_KEY}
       - CLIENT_URL=http://localhost:3000
       - NODE_ENV=production
     depends_on:
@@ -35,10 +35,11 @@ services:
     build: ./backend/ai-service
     container_name: smart-ats-ai
     restart: unless-stopped
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - AI_SERVICE_API_KEY=${AI_SERVICE_API_KEY}
 
   frontend:
     build: ./frontend

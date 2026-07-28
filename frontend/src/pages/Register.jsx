@@ -26,7 +26,7 @@ export default function Register() {
   const field = (key, label, type = 'text', placeholder = '') => (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-      <input type={type} required={key !== 'company'} value={form[key]}
+      <input type={type} required={key !== 'company'} minLength={key === 'password' ? 8 : undefined} value={form[key]}
         onChange={(e) => setForm({ ...form, [key]: e.target.value })}
         className="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary-500"
         placeholder={placeholder} />

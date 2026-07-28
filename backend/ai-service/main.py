@@ -1,31 +1,53 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional
-import google.generativeai as genai
+import hmac
 import json
+import logging
 import os
 import re
+from typing import Optional
+
+import google.generativeai as genai
 from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
 load_dotenv()
 
+logger = logging.getLogger("talentpilot.ai")
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    raise RuntimeError("GEMINI_API_KEY is required")
+
+# Shared secret used by the Node backend; the service is not meant to be public.
+SERVICE_API_KEY = os.getenv("AI_SERVICE_API_KEY")
+if not SERVICE_API_KEY:
+    raise RuntimeError("AI_SERVICE_API_KEY is required")
+
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+
 app = FastAPI(title="TalentPilot AI Service", version="1.0.0")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if ALLOWED_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=ALLOWED_ORIGINS,
+        allow_methods=["POST", "GET"],
+        allow_headers=["Content-Type", "X-API-Key"],
+    )
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY", "placeholder"))
+genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-1.5-flash")
 
 
+def require_api_key(x_api_key: Optional[str] = Header(default=None)) -> None:
+    if not x_api_key or not hmac.compare_digest(x_api_key, SERVICE_API_KEY):
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+
 class ResumeRequest(BaseModel):
-    resume_text: str
-    job_description: Optional[str] = ""
+    resume_text: str = Field(max_length=100_000)
+    job_description: Optional[str] = Field(default="", max_length=20_000)
 
 
 EXTRACTION_PROMPT = """
@@ -90,7 +112,7 @@ def clean_json(text: str) -> str:
     return re.sub(r"```json\s*|\s*```", "", text).strip()
 
 
-@app.post("/extract")
+@app.post("/extract", dependencies=[Depends(require_api_key)])
 async def extract_resume(request: ResumeRequest):
     if not request.resume_text.strip():
         raise HTTPException(status_code=400, detail="Resume text is empty")
@@ -105,12 +127,13 @@ async def extract_resume(request: ResumeRequest):
         text = clean_json(response.text)
         return json.loads(text)
     except json.JSONDecodeError:
-        raise HTTPException(status_code=500, detail="AI returned invalid JSON")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=502, detail="AI returned invalid JSON")
+    except Exception:
+        logger.exception("Resume extraction failed")
+        raise HTTPException(status_code=502, detail="AI extraction failed")
 
 
-@app.post("/match")
+@app.post("/match", dependencies=[Depends(require_api_key)])
 async def match_resume_to_job(request: ResumeRequest):
     if not request.job_description:
         raise HTTPException(status_code=400, detail="Job description required")
@@ -134,8 +157,9 @@ Job: {request.job_description[:2000]}
     try:
         response = model.generate_content(prompt)
         return json.loads(clean_json(response.text))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Resume matching failed")
+        raise HTTPException(status_code=502, detail="AI matching failed")
 
 
 @app.get("/health")
