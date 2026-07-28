@@ -3,6 +3,7 @@ const nodemailer = require('nodemailer');
 const Interview = require('../models/Interview');
 const Candidate = require('../models/Candidate');
 const { protect } = require('../middleware/auth');
+const { sendSuccess, notFound } = require('../utils/apiResponse');
 
 const router = express.Router();
 router.use(protect);
@@ -45,7 +46,7 @@ router.post('/', async (req, res) => {
   ]);
 
   await sendInterviewEmail(populated.candidate, interview, populated.job);
-  res.status(201).json({ success: true, data: populated });
+  sendSuccess(res, { data: populated }, 201);
 });
 
 router.get('/', async (req, res) => {
@@ -66,19 +67,19 @@ router.get('/', async (req, res) => {
     .populate('scheduledBy', 'name')
     .sort('scheduledAt');
 
-  res.json({ success: true, data: interviews });
+  sendSuccess(res, { data: interviews });
 });
 
 router.get('/:id', async (req, res) => {
   const interview = await Interview.findById(req.params.id)
     .populate('candidate').populate('job').populate('interviewers', 'name email');
-  if (!interview) return res.status(404).json({ success: false, message: 'Interview not found' });
-  res.json({ success: true, data: interview });
+  if (!interview) return notFound(res, 'Interview');
+  sendSuccess(res, { data: interview });
 });
 
 router.put('/:id', async (req, res) => {
   const interview = await Interview.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  res.json({ success: true, data: interview });
+  sendSuccess(res, { data: interview });
 });
 
 router.post('/:id/feedback', async (req, res) => {
@@ -87,7 +88,7 @@ router.post('/:id/feedback', async (req, res) => {
     { feedback: { ...req.body, submittedBy: req.user._id, submittedAt: new Date() }, status: 'completed' },
     { new: true }
   );
-  res.json({ success: true, data: interview });
+  sendSuccess(res, { data: interview });
 });
 
 module.exports = router;

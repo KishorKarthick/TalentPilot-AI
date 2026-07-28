@@ -4,6 +4,7 @@ import { Navigate } from 'react-router-dom';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { UserCircleIcon, ShieldCheckIcon, PlusIcon } from '@heroicons/react/24/outline';
+import Spinner from '../components/Spinner';
 
 const ROLE_COLORS = {
   admin: 'bg-purple-100 text-purple-700',
@@ -134,7 +135,7 @@ export default function UserManagement() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600" /></div>
+        <Spinner color="purple" />
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <table className="w-full">

@@ -4,6 +4,7 @@ const Job = require('../models/Job');
 const Candidate = require('../models/Candidate');
 const Interview = require('../models/Interview');
 const { protect } = require('../middleware/auth');
+const { sendSuccess } = require('../utils/apiResponse');
 
 const router = express.Router();
 router.use(protect);
@@ -45,8 +46,7 @@ router.get('/dashboard', async (req, res) => {
     ]),
   ]);
 
-  res.json({
-    success: true,
+  sendSuccess(res, {
     data: {
       overview: { totalJobs, activeJobs, totalResumes, pendingResumes, totalCandidates, totalInterviews, upcomingInterviews, duplicateResumes },
       recentActivity,
@@ -72,7 +72,7 @@ router.get('/jobs/:jobId', async (req, res) => {
     Resume.find({ job: jobId }).sort('-matchScore').limit(5).populate('candidate', 'name email'),
   ]);
 
-  res.json({ success: true, data: { total, byStatus, avgScore: avgScore[0], topCandidates } });
+  sendSuccess(res, { data: { total, byStatus, avgScore: avgScore[0], topCandidates } });
 });
 
 module.exports = router;

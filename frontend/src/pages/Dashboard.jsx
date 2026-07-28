@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { analyticsAPI } from '../utils/api';
+import Spinner from '../components/Spinner';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend } from 'chart.js';
 import { BriefcaseIcon, DocumentTextIcon, UsersIcon, CalendarIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
@@ -30,7 +31,7 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600" /></div>;
+  if (loading) return <Spinner size="md" wrapperClassName="flex justify-center py-20" />;
 
   const { overview, scoreDistribution, topSkills, hiringFunnel, recentActivity } = data || {};
 

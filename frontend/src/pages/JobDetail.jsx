@@ -3,11 +3,12 @@ import { useParams, Link } from 'react-router-dom';
 import { jobsAPI, resumesAPI } from '../utils/api';
 import toast from 'react-hot-toast';
 import { ArrowLeftIcon, UserCircleIcon } from '@heroicons/react/24/outline';
+import Spinner from '../components/Spinner';
+import { scoreColorClass } from '../utils/score';
 
-const ScoreBadge = ({ score }) => {
-  const color = score >= 70 ? 'bg-green-100 text-green-700' : score >= 40 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700';
-  return <span className={`text-sm font-bold px-3 py-1 rounded-full ${color}`}>{score}%</span>;
-};
+const ScoreBadge = ({ score }) => (
+  <span className={`text-sm font-bold px-3 py-1 rounded-full ${scoreColorClass(score)}`}>{score}%</span>
+);
 
 const ScoreBar = ({ label, value }) => (
   <div>
@@ -53,7 +54,7 @@ export default function JobDetail() {
     return true;
   });
 
-  if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600" /></div>;
+  if (loading) return <Spinner size="md" wrapperClassName="flex justify-center py-20" />;
 
   return (
     <div className="space-y-6">
