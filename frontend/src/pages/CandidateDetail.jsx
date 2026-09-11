@@ -97,6 +97,28 @@ export default function CandidateDetail() {
             </div>
           )}
 
+          {/* Projects */}
+          {extractedData?.projects?.length > 0 && (
+            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+              <h3 className="font-semibold text-gray-900 mb-4">Projects</h3>
+              <div className="space-y-4">
+                {extractedData.projects.map((proj, i) => (
+                  <div key={i} className="border-l-2 border-green-200 pl-4">
+                    <p className="font-medium text-gray-900">{proj.name}</p>
+                    {proj.description && <p className="text-sm text-gray-600 mt-1">{proj.description}</p>}
+                    {proj.technologies?.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {proj.technologies.map((tech, ti) => (
+                          <span key={ti} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{tech}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Applications */}
           <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
             <h3 className="font-semibold text-gray-900 mb-4">Applications ({candidate.applications?.length || 0})</h3>

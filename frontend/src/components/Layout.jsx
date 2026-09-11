@@ -5,15 +5,16 @@ import {
   HomeIcon, BriefcaseIcon, DocumentArrowUpIcon,
   UsersIcon, CalendarIcon, ChartBarIcon,
   Bars3Icon, XMarkIcon, ArrowRightOnRectangleIcon,
-  ShieldCheckIcon,
+  ShieldCheckIcon, SparklesIcon,
 } from '@heroicons/react/24/outline';
 
 const baseNavItems = [
-  { to: '/dashboard', icon: HomeIcon, label: 'Dashboard', roles: ['recruiter', 'admin', 'hiring_manager'] },
-  { to: '/jobs', icon: BriefcaseIcon, label: 'Jobs', roles: ['recruiter', 'admin', 'hiring_manager'] },
-  { to: '/resumes/upload', icon: DocumentArrowUpIcon, label: 'Upload Resumes', roles: ['recruiter', 'admin'] },
+  { to: '/dashboard', icon: HomeIcon, label: 'Dashboard', roles: ['candidate', 'recruiter', 'admin', 'hiring_manager'] },
+  { to: '/jobs', icon: BriefcaseIcon, label: 'Jobs', roles: ['candidate', 'recruiter', 'admin', 'hiring_manager'] },
+  { to: '/resumes/upload', icon: DocumentArrowUpIcon, label: 'Upload Resumes', roles: ['candidate', 'recruiter', 'admin'] },
   { to: '/candidates', icon: UsersIcon, label: 'Candidates', roles: ['recruiter', 'admin', 'hiring_manager'] },
-  { to: '/interviews', icon: CalendarIcon, label: 'Interviews', roles: ['recruiter', 'admin', 'hiring_manager'] },
+  { to: '/interviews', icon: CalendarIcon, label: 'Interviews', roles: ['candidate', 'recruiter', 'admin', 'hiring_manager'] },
+  { to: '/ai-interviewer', icon: SparklesIcon, label: 'AI Interviewer', roles: ['candidate', 'recruiter', 'admin', 'hiring_manager'] },
   { to: '/analytics', icon: ChartBarIcon, label: 'Analytics', roles: ['recruiter', 'admin', 'hiring_manager'] },
 ];
 

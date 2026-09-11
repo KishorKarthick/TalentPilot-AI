@@ -38,6 +38,11 @@ const resumeSchema = new mongoose.Schema({
       year: String,
       gpa: String,
     }],
+    projects: [{
+      name: String,
+      description: String,
+      technologies: [String],
+    }],
     certifications: [String],
     languages: [String],
     totalExperienceYears: Number,
@@ -47,13 +52,23 @@ const resumeSchema = new mongoose.Schema({
   atsScore: { type: Number, min: 0, max: 100 },
   matchScore: { type: Number, min: 0, max: 100 },
   scoreBreakdown: {
+    technicalSkills: Number, // max 40
+    experience: Number,      // max 20
+    education: Number,       // max 15
+    jdSimilarity: Number,    // max 20
+    projects: Number,        // max 5
     skillsMatch: Number,
     experienceMatch: Number,
     educationMatch: Number,
     keywordsMatch: Number,
   },
+  skillComparison: [{
+    skill: String,
+    matched: Boolean,
+  }],
   matchedSkills: [String],
   missingSkills: [String],
+  whyShortlisted: String,
   aiSummary: String,
 
   // Status

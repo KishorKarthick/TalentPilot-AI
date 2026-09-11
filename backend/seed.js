@@ -31,8 +31,10 @@ const Resume = mongoose.model('Resume', new mongoose.Schema({
   fileType: String, fileSize: Number, contentHash: String, rawText: String,
   extractedData: mongoose.Schema.Types.Mixed,
   atsScore: Number, matchScore: Number,
-  scoreBreakdown: { skillsMatch: Number, experienceMatch: Number, educationMatch: Number, keywordsMatch: Number },
-  matchedSkills: [String], missingSkills: [String], aiSummary: String,
+  scoreBreakdown: mongoose.Schema.Types.Mixed,
+  skillComparison: [mongoose.Schema.Types.Mixed],
+  matchedSkills: [String], missingSkills: [String],
+  whyShortlisted: String, aiSummary: String,
   status: String, isDuplicate: { type: Boolean, default: false },
 }, { timestamps: true }));
 
@@ -233,19 +235,41 @@ async function seed() {
         skills: candidateData.skills,
         experience: [{ company: 'Previous Company', title: candidateData.currentTitle, duration: `${2024 - candidateData.totalExperienceYears} - Present`, years: candidateData.totalExperienceYears }],
         education: [{ institution: 'State University', degree: "Bachelor's", field: 'Computer Science', year: `${2024 - candidateData.totalExperienceYears - 4}` }],
-        certifications: [],
+        projects: [
+          {
+            name: `${candidateData.currentTitle} Platform`,
+            description: `Built an enterprise solution using ${candidateData.skills.slice(0, 2).join(' and ')}. Implemented scalable architecture and automated CI/CD pipelines.`,
+            technologies: candidateData.skills.slice(0, 3),
+          },
+          {
+            name: 'Cloud Data Sync Engine',
+            description: 'Designed a high-throughput data processing pipeline handling real-time analytics.',
+            technologies: candidateData.skills.slice(2, 5),
+          }
+        ],
+        certifications: ['AWS Certified Solutions Architect', 'Professional Scrum Master'],
         totalExperienceYears: candidateData.totalExperienceYears,
       },
       atsScore,
       matchScore,
       scoreBreakdown: {
+        technicalSkills: Math.round(matchScore * 0.4),
+        experience: Math.round(matchScore * 0.2),
+        education: Math.round(matchScore * 0.15),
+        jdSimilarity: Math.round(matchScore * 0.2),
+        projects: 5,
         skillsMatch: Math.min(matchScore + 5, 100),
         experienceMatch: Math.max(matchScore - 5, 0),
         educationMatch: Math.max(matchScore - 8, 0),
         keywordsMatch: Math.min(matchScore + 3, 100),
       },
+      skillComparison: jobSkills.map(s => ({
+        skill: s,
+        matched: candidateData.skills.includes(s)
+      })),
       matchedSkills,
       missingSkills,
+      whyShortlisted: `Strong ${matchedSkills.slice(0, 3).join(' + ')} experience`,
       aiSummary: `${candidateData.name} is a ${candidateData.currentTitle} with ${candidateData.totalExperienceYears} years of experience. Strong match for the ${job.title} role with ${matchedSkills.length} out of ${jobSkills.length} required skills. ${missingSkills.length > 0 ? `Missing: ${missingSkills.join(', ')}.` : 'All required skills present.'} Recommended for ${appStatus === 'shortlisted' || appStatus === 'interview' ? 'further evaluation' : 'initial screening'}.`,
       status: appStatus === 'applied' ? 'reviewed' : appStatus,
       isDuplicate: false,

@@ -102,8 +102,10 @@ router.post('/upload', upload.array('resumes', 100), async (req, res) => {
         atsScore: aiData?.atsScore || 0,
         matchScore: aiData?.matchScore || 0,
         scoreBreakdown: aiData?.scoreBreakdown || {},
+        skillComparison: aiData?.skillComparison || [],
         matchedSkills: aiData?.matchedSkills || [],
         missingSkills: aiData?.missingSkills || [],
+        whyShortlisted: aiData?.whyShortlisted || '',
         aiSummary: aiData?.aiSummary || aiData?.summary || '',
         status: 'reviewed',
       });
@@ -175,8 +177,10 @@ router.post('/:id/rescore', async (req, res) => {
     matchScore: aiData.matchScore,
     atsScore: aiData.atsScore,
     scoreBreakdown: aiData.scoreBreakdown,
+    skillComparison: aiData.skillComparison,
     matchedSkills: aiData.matchedSkills,
     missingSkills: aiData.missingSkills,
+    whyShortlisted: aiData.whyShortlisted,
     aiSummary: aiData.aiSummary || aiData.summary || '',
   }, { new: true });
 

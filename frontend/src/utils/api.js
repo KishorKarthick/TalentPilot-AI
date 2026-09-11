@@ -55,6 +55,8 @@ export const interviewsAPI = {
   create: (data) => api.post('/interviews', data),
   update: (id, data) => api.put(`/interviews/${id}`, data),
   submitFeedback: (id, data) => api.post(`/interviews/${id}/feedback`, data),
+  generateQuestions: (role) => api.post('/interviews/ai/generate-questions', { role }),
+  evaluateAnswer: (role, question, answer) => api.post('/interviews/ai/evaluate', { role, question, answer }),
 };
 
 export const analyticsAPI = {

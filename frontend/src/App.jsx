@@ -11,6 +11,7 @@ import ResumeUpload from './pages/ResumeUpload';
 import Candidates from './pages/Candidates';
 import CandidateDetail from './pages/CandidateDetail';
 import Interviews from './pages/Interviews';
+import AIInterviewer from './pages/AIInterviewer';
 import Analytics from './pages/Analytics';
 import UserManagement from './pages/UserManagement';
 
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="candidates" element={<Candidates />} />
             <Route path="candidates/:id" element={<CandidateDetail />} />
             <Route path="interviews" element={<Interviews />} />
+            <Route path="ai-interviewer" element={<AIInterviewer />} />
             <Route path="analytics" element={<Analytics />} />
             <Route path="admin/users" element={<UserManagement />} />
           </Route>
